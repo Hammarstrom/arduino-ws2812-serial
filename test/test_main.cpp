@@ -17,6 +17,9 @@ MockSerial Serial;
 #define PIN_PIXEL  6
 #define NUM_PIXELS 60
 
+// Forward declarations
+void knightRider(uint32_t color, uint8_t wait, uint8_t tailLength);
+
 Adafruit_NeoPixel strip(NUM_PIXELS, PIN_PIXEL, NEO_GRB + NEO_KHZ800);
 
 uint8_t color_r = 0;
@@ -62,10 +65,50 @@ void loop() {
             case 'l':
                 commandLedToColor();
                 break;
+            case 'd':
+                // demo() - not tested here (relies on many animation functions)
+                break;
+            case 'k':
+                knightRider(Adafruit_NeoPixel::Color(255, 0, 0), 0, 3);
+                break;
             default:
                 break;
         }
     }
+}
+
+void knightRider(uint32_t color, uint8_t wait, uint8_t tailLength) {
+    uint8_t r = (color >> 16) & 0xFF;
+    uint8_t g = (color >> 8) & 0xFF;
+    uint8_t b = color & 0xFF;
+
+    for (int pass = 0; pass < 2; pass++) {
+        int start = (pass == 0) ? 0 : NUM_PIXELS - 1;
+        int end   = (pass == 0) ? NUM_PIXELS : -1;
+        int step  = (pass == 0) ? 1 : -1;
+
+        for (int i = start; i != end; i += step) {
+            for (int p = 0; p < NUM_PIXELS; p++) {
+                strip.setPixelColor(p, 0);
+            }
+            for (int t = 0; t <= tailLength; t++) {
+                int pos = i - t * step;
+                if (pos >= 0 && pos < NUM_PIXELS) {
+                    uint8_t fade = 255 / (t + 1);
+                    strip.setPixelColor(pos,
+                        (r * fade) / 255,
+                        (g * fade) / 255,
+                        (b * fade) / 255);
+                }
+            }
+            strip.show();
+            delay(wait);
+        }
+    }
+    for (int p = 0; p < NUM_PIXELS; p++) {
+        strip.setPixelColor(p, 0);
+    }
+    strip.show();
 }
 
 uint32_t Wheel(byte WheelPos) {
@@ -442,6 +485,43 @@ bool test_different_colors_different_leds() {
 }
 
 // ============================================================
+// Tests: knightRider()
+// ============================================================
+
+bool test_knight_rider_clears_strip_when_done() {
+    resetState();
+    knightRider(Adafruit_NeoPixel::Color(255, 0, 0), 0, 3);
+    // After finishing, all pixels should be off
+    for (int i = 0; i < NUM_PIXELS; i++) {
+        ASSERT_EQ(0, strip.pixels[i].r, "pixel should be off after knight rider");
+    }
+    return true;
+}
+
+bool test_knight_rider_calls_show() {
+    resetState();
+    knightRider(Adafruit_NeoPixel::Color(255, 0, 0), 0, 2);
+    // Should have called show many times (2 passes * 60 pixels + 1 final clear)
+    if (strip.showCount < NUM_PIXELS * 2) {
+        printf("  FAIL: expected at least %d show calls, got %d\n",
+               NUM_PIXELS * 2, strip.showCount);
+        return false;
+    }
+    return true;
+}
+
+bool test_knight_rider_via_serial() {
+    resetState();
+    Serial.push('k');
+    loop();
+    // Should complete without crash and clear strip
+    for (int i = 0; i < NUM_PIXELS; i++) {
+        ASSERT_EQ(0, strip.pixels[i].r, "pixel off after 'k' command");
+    }
+    return true;
+}
+
+// ============================================================
 // Main
 // ============================================================
 
@@ -475,6 +555,11 @@ int main() {
     RUN_TEST(test_loop_dispatches_apply);
     RUN_TEST(test_loop_ignores_unknown_command);
     RUN_TEST(test_loop_no_data);
+
+    printf("\n=== knightRider() tests ===\n");
+    RUN_TEST(test_knight_rider_clears_strip_when_done);
+    RUN_TEST(test_knight_rider_calls_show);
+    RUN_TEST(test_knight_rider_via_serial);
 
     printf("\n=== Integration tests ===\n");
     RUN_TEST(test_full_sequence_set_color_set_led_apply);
