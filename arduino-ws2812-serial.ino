@@ -1,6 +1,15 @@
 #include <Adafruit_NeoPixel.h>
 
-#define PIN_PIXEL  6
+// Data pin for the WS2812 strip.
+// ESP32: GPIO6 is reserved for internal flash and MUST NOT be used.
+//        GPIO5 is a safe default on most ESP32 dev boards.
+// AVR (Uno/Nano): pin 6 is the original wiring.
+#ifdef ESP32_BOARD
+  #define PIN_PIXEL  5
+#else
+  #define PIN_PIXEL  6
+#endif
+
 #define NUM_PIXELS 60
 
 // Parameter 1 = number of pixels in strip
