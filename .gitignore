@@ -1,0 +1,7 @@
+test/run_tests
+
+# PlatformIO build artifacts
+.pio/
+.pioenvs/
+.piolibdeps/
+.vscode/

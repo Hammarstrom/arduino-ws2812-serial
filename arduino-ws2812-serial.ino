@@ -1,6 +1,15 @@
 #include <Adafruit_NeoPixel.h>
 
-#define PIN_PIXEL  6
+// Data pin for the WS2812 strip.
+// ESP32: GPIO6 is reserved for internal flash and MUST NOT be used.
+//        GPIO5 is a safe default on most ESP32 dev boards.
+// AVR (Uno/Nano): pin 6 is the original wiring.
+#ifdef ESP32_BOARD
+  #define PIN_PIXEL  5
+#else
+  #define PIN_PIXEL  6
+#endif
+
 #define NUM_PIXELS 60
 
 // Parameter 1 = number of pixels in strip
@@ -61,6 +70,12 @@ void loop() {
                 break;
             case 'l':
                 commandLedToColor();
+                break;
+            case 'd':
+                demo();
+                break;
+            case 'k':
+                knightRider(strip.Color(255, 0, 0), 30, 3);
                 break;
             default:
                 break;
@@ -194,6 +209,44 @@ void theaterChaseRainbow(uint8_t wait) {
             }
         }
     }
+}
+
+// Knight Rider / KITT scanner effect with fading tail
+void knightRider(uint32_t color, uint8_t wait, uint8_t tailLength) {
+    uint8_t r = (color >> 16) & 0xFF;
+    uint8_t g = (color >> 8) & 0xFF;
+    uint8_t b = color & 0xFF;
+
+    for (int pass = 0; pass < 2; pass++) {
+        int start = (pass == 0) ? 0 : NUM_PIXELS - 1;
+        int end   = (pass == 0) ? NUM_PIXELS : -1;
+        int step  = (pass == 0) ? 1 : -1;
+
+        for (int i = start; i != end; i += step) {
+            // Clear strip
+            for (int p = 0; p < NUM_PIXELS; p++) {
+                strip.setPixelColor(p, 0);
+            }
+            // Draw head + fading tail
+            for (int t = 0; t <= tailLength; t++) {
+                int pos = i - t * step;
+                if (pos >= 0 && pos < NUM_PIXELS) {
+                    uint8_t fade = 255 / (t + 1);
+                    strip.setPixelColor(pos,
+                        (r * fade) / 255,
+                        (g * fade) / 255,
+                        (b * fade) / 255);
+                }
+            }
+            strip.show();
+            delay(wait);
+        }
+    }
+    // Clear when done
+    for (int p = 0; p < NUM_PIXELS; p++) {
+        strip.setPixelColor(p, 0);
+    }
+    strip.show();
 }
 
 // Input a value 0 to 255 to get a color value.
